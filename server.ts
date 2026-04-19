@@ -23,6 +23,7 @@ app.use(cors());
 app.use(express.json());
 
 let db: Db;
+let dbConnectionPromise: Promise<void> | null = null;
 
 type AuthUser = {
   id: string;
@@ -90,6 +91,21 @@ async function connectDB() {
   console.log("Connected to MongoDB");
 }
 
+async function ensureDBConnected() {
+  if (db) {
+    return;
+  }
+
+  if (!dbConnectionPromise) {
+    dbConnectionPromise = connectDB().catch((error) => {
+      dbConnectionPromise = null;
+      throw error;
+    });
+  }
+
+  await dbConnectionPromise;
+}
+
 function signToken(user: AuthUser) {
   return jwt.sign(user, JWT_SECRET, { expiresIn: "7d" });
 }
@@ -103,6 +119,7 @@ function sanitizeUser(userDoc: any): AuthUser {
 }
 
 const authenticate = async (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
+  await ensureDBConnected();
   const authHeader = req.headers.authorization;
   const token = authHeader?.split(" ")[1];
 
@@ -293,6 +310,7 @@ function getShareForUser(expense: { shares?: NormalizedShare[] }, userId: string
 }
 
 app.post("/api/auth/register", async (req, res) => {
+  await ensureDBConnected();
   const email = String(req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
   const displayName = String(req.body?.displayName || "").trim();
@@ -328,6 +346,7 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 app.post("/api/auth/login", async (req, res) => {
+  await ensureDBConnected();
   const email = String(req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
 
@@ -345,6 +364,7 @@ app.get("/api/auth/me", authenticate, async (req: AuthenticatedRequest, res) => 
 });
 
 app.get("/api/rooms/my-rooms", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const rooms = await db
     .collection("rooms")
     .find({ members: req.user!.id })
@@ -362,6 +382,7 @@ app.get("/api/rooms/my-rooms", authenticate, async (req: AuthenticatedRequest, r
 });
 
 app.post("/api/rooms/create", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const name = String(req.body?.name || "").trim() || "My Split Room";
   const code = await generateUniqueRoomCode();
 
@@ -383,6 +404,7 @@ app.post("/api/rooms/create", authenticate, async (req: AuthenticatedRequest, re
 });
 
 app.post("/api/rooms/join", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const code = String(req.body?.code || "").trim().toUpperCase();
 
   if (!ROOM_CODE_PATTERN.test(code)) {
@@ -407,6 +429,7 @@ app.post("/api/rooms/join", authenticate, async (req: AuthenticatedRequest, res)
 });
 
 app.get("/api/rooms/:code", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const roomCode = String(req.params.code || "").trim().toUpperCase();
   const month = req.query.month ? String(req.query.month) : "";
   const room = await getRoomForMember(roomCode, req.user!.id);
@@ -464,6 +487,7 @@ app.get("/api/rooms/:code", authenticate, async (req: AuthenticatedRequest, res)
 });
 
 app.delete("/api/rooms/:code/members/:memberId", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const roomCode = String(req.params.code || "").trim().toUpperCase();
   const memberId = String(req.params.memberId || "").trim();
   const room = await db.collection("rooms").findOne({ code: roomCode });
@@ -498,6 +522,7 @@ app.delete("/api/rooms/:code/members/:memberId", authenticate, async (req: Authe
 });
 
 app.post("/api/expenses", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
   const room = await getRoomForMember(roomCode, req.user!.id);
 
@@ -525,6 +550,7 @@ app.post("/api/expenses", authenticate, async (req: AuthenticatedRequest, res) =
 });
 
 app.put("/api/expenses/:id", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const expenseId = String(req.params.id || "");
   if (!isValidObjectId(expenseId)) {
     return res.status(400).json({ error: "Invalid expense id" });
@@ -587,6 +613,7 @@ app.put("/api/expenses/:id", authenticate, async (req: AuthenticatedRequest, res
 });
 
 app.delete("/api/expenses/:id", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const expenseId = String(req.params.id || "");
   if (!isValidObjectId(expenseId)) {
     return res.status(400).json({ error: "Invalid expense id" });
@@ -616,6 +643,7 @@ app.delete("/api/expenses/:id", authenticate, async (req: AuthenticatedRequest, 
 });
 
 app.post("/api/expenses/:id/payment-request", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const expenseId = String(req.params.id || "");
   if (!isValidObjectId(expenseId)) {
     return res.status(400).json({ error: "Invalid expense id" });
@@ -673,6 +701,7 @@ app.post("/api/expenses/:id/payment-request", authenticate, async (req: Authenti
 });
 
 app.put("/api/payment-requests/:id/approve", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const requestId = String(req.params.id || "");
   if (!isValidObjectId(requestId)) {
     return res.status(400).json({ error: "Invalid payment request id" });
@@ -712,6 +741,7 @@ app.put("/api/payment-requests/:id/approve", authenticate, async (req: Authentic
 });
 
 app.post("/api/settlements", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
   const from = String(req.body?.from || "");
   const to = String(req.body?.to || "");
@@ -751,6 +781,7 @@ app.post("/api/settlements", authenticate, async (req: AuthenticatedRequest, res
 });
 
 app.put("/api/settlements/:id", authenticate, async (req: AuthenticatedRequest, res) => {
+  await ensureDBConnected();
   const settlementId = String(req.params.id || "");
   const status = req.body?.status === "settled" ? "settled" : "pending";
 
@@ -793,7 +824,7 @@ app.put("/api/settlements/:id", authenticate, async (req: AuthenticatedRequest, 
   return res.json({ success: true });
 });
 
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === "production" && !process.env.VERCEL) {
   app.use(express.static(path.join(__dirname, "dist")));
   app.get("*", (_req, res) => {
     res.sendFile(path.join(__dirname, "dist", "index.html"));
@@ -804,13 +835,17 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-connectDB()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+export { app, ensureDBConnected };
+
+if (!process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error("MongoDB connection error:", error);
+      process.exit(1);
     });
-  })
-  .catch((error) => {
-    console.error("MongoDB connection error:", error);
-    process.exit(1);
-  });
+}

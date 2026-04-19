@@ -8,7 +8,8 @@ type AuthResponse = {
   user: AppUser;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL?.trim() || "";
+const API_BASE = RAW_API_BASE.replace(/\/$/, "");
 
 async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
