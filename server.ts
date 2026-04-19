@@ -12,10 +12,12 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const isServerless = Boolean(process.env.VERCEL);
+const isProduction = process.env.NODE_ENV === "production" || isServerless;
 const PORT = Number(process.env.PORT || 5000);
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
-const DB_NAME = process.env.MONGODB_DB_NAME || "splitmate";
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
+const MONGODB_URI = process.env.MONGODB_URI?.trim() || "";
+const DB_NAME = process.env.MONGODB_DB_NAME?.trim() || "splitmate";
+const JWT_SECRET = process.env.JWT_SECRET?.trim() || "";
 const ROOM_CODE_PATTERN = /^[A-Z0-9]{6}$/;
 
 const app = express();
@@ -75,6 +77,14 @@ function endOfMonth(month: string) {
 }
 
 async function connectDB() {
+  if (!MONGODB_URI) {
+    throw new Error("Missing MONGODB_URI environment variable");
+  }
+
+  if (!JWT_SECRET) {
+    throw new Error("Missing JWT_SECRET environment variable");
+  }
+
   const client = await MongoClient.connect(MONGODB_URI);
   db = client.db(DB_NAME);
 
@@ -88,7 +98,7 @@ async function connectDB() {
     db.collection("paymentRequests").createIndex({ approverId: 1, status: 1, createdAt: -1 }),
   ]);
 
-  console.log("Connected to MongoDB");
+    console.log("Connected to MongoDB");
 }
 
 async function ensureDBConnected() {
