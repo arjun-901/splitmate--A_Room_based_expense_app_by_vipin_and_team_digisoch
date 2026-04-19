@@ -1,0 +1,52 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-brand-bg: #ffffff;
+  --color-brand-card: #ffffff;
+  --color-brand-primary: #2b2b2b;
+  --color-brand-text: #2b2b2b;
+  --color-brand-muted: #b3b3b3;
+  --color-brand-success: #2e8b57;
+  --color-brand-danger: #d65a5a;
+  --color-brand-border: #eaeaea;
+  --color-brand-accent: #d4d4d4;
+  --shadow-soft: 0 6px 18px rgba(43, 43, 43, 0.05);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  background: #ffffff;
+  color: var(--color-brand-text);
+  font-family: var(--font-sans);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+
+.dashboard-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d4 transparent;
+}
